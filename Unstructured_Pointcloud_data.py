@@ -28,5 +28,5 @@ def process_lidar_video(lidar_folder):
         o3d.visualization.destroy_window()
 
 #Folder Path
-lidar_folder = r"2011_09_26_drive_0052_sync\velodyne_points\data"
+lidar_folder = r"Test_Data_short"
 process_lidar_video(lidar_folder)

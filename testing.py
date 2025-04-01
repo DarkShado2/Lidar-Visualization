@@ -137,21 +137,47 @@ def remove_ground_points(points, height_threshold=-1.4):
     return points[points[:, 2] > height_threshold]
 
 def process_lidar_video(lidar_folder):
-    #Processes a folder of lidar .bin files and visualizes them sequentially
     file_list = sorted(glob.glob(os.path.join(lidar_folder, "*.bin")))
-
-    for file_path in file_list:
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    pcd = o3d.geometry.PointCloud()
+    
+    # Load and visualize the first frame normally
+    if file_list:
+        first_points = load_lidar_bin(file_list[0])
+        filtered_points = remove_noise(first_points)
+        no_ground_points = remove_ground_points(filtered_points)
+        final_points, _, _ = cluster_and_bounding_boxes(no_ground_points)
+        
+        if final_points.size > 0:
+            pcd.points = o3d.utility.Vector3dVector(final_points)
+            vis.add_geometry(pcd)
+            vis.poll_events()
+            vis.update_renderer()
+    
+    # Process the remaining frames
+    for file_path in file_list[1:]:
         print(f"Processing: {file_path}")
         points = load_lidar_bin(file_path)
         filtered_points = remove_noise(points)
         no_ground_points = remove_ground_points(filtered_points)
-        final_points, bounding_boxes, final_labels = cluster_and_bounding_boxes(no_ground_points)  # Get filtered points
+        final_points, _, _ = cluster_and_bounding_boxes(no_ground_points)
+        
         if final_points.size > 0:
-            visualize_bounding_boxes(final_points, bounding_boxes, final_labels)
-        time.sleep(0.1) # Adjust delay for desired speed
-        """Delay to control visualization speed does not work currently. working on a fix"""
-        o3d.visualization.destroy_window()
+            pcd.points = o3d.utility.Vector3dVector(final_points)
+            vis.update_geometry(pcd)
+            vis.poll_events()
+            vis.update_renderer()
+        
+        time.sleep(0.1)  # Adjust delay for playback speed
+    
+    vis.destroy_window()
 
-# Folder Path
+# Call the function with the folder path
 lidar_folder = r"Test_Data_short"
+process_lidar_video(lidar_folder)
+
+
+# Call the function with the folder path
+lidar_folder = r"2011_09_26_drive_0052_sync\velodyne_points\data"
 process_lidar_video(lidar_folder)
