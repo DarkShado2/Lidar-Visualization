@@ -17,9 +17,9 @@ pcd.points = o3d.utility.Vector3dVector(points)
 vis.add_geometry(pcd)
 
 # to add new points each dt secs.
-dt = 1
+dt = .1
 # number of points that will be added
-n_new = 100000
+n_new = 100
 
 previous_t = time.time()
 

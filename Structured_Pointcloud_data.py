@@ -114,6 +114,7 @@ def create_grid_lines(z_level=-1, size=20, spacing=1, color=[0.7, 0.7, 0.7]):
     return line_set
 
 def visualize_bounding_boxes(points, bounding_boxes, labels):
+
     #Visualizes the point cloud with bounding boxes and fixed markers
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
@@ -132,13 +133,20 @@ def visualize_bounding_boxes(points, bounding_boxes, labels):
         geometries.append(lines)
 
     o3d.visualization.draw_geometries(geometries)
+
 def remove_ground_points(points, height_threshold=-1.4):
     #Removes ground points based on height threshold
     return points[points[:, 2] > height_threshold]
 
-def process_lidar_video(lidar_folder):
-    #Processes a folder of lidar .bin files and visualizes them sequentially
+def save_lidar_bin(points, file_path):
+    #Saves lidar points to a .bin file
+    points.astype(np.float32).tofile(file_path)
+
+def process_lidar_video(lidar_folder, output_folder):
+    #Processes a folder of lidar .bin files, visualizes them sequentially, and saves the processed points.
     file_list = sorted(glob.glob(os.path.join(lidar_folder, "*.bin")))
+
+    os.makedirs(output_folder, exist_ok=True)  # Create output folder if it doesn't exist
 
     for file_path in file_list:
         print(f"Processing: {file_path}")
@@ -148,10 +156,17 @@ def process_lidar_video(lidar_folder):
         final_points, bounding_boxes, final_labels = cluster_and_bounding_boxes(no_ground_points)  # Get filtered points
         if final_points.size > 0:
             visualize_bounding_boxes(final_points, bounding_boxes, final_labels)
-        time.sleep(0.1) # Adjust delay for desired speed
-        """Delay to control visualization speed does not work currently. working on a fix"""
+
+            # Save the processed points to a new .bin file
+            output_file_name = os.path.basename(file_path)
+            output_file_path = os.path.join(output_folder, output_file_name)
+            save_lidar_bin(final_points, output_file_path)
+            print(f"Saved processed data to: {output_file_path}")
+
+        time.sleep(0.1)  # Adjust delay for desired speed
         o3d.visualization.destroy_window()
 
 # Folder Path
 lidar_folder = r"Test_Data_short"
-process_lidar_video(lidar_folder)
+output_folder = r"Processed_Data_short"
+process_lidar_video(lidar_folder, output_folder)
