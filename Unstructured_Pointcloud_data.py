@@ -59,5 +59,5 @@ def process_lidar_video(lidar_folder):
         o3d.visualization.destroy_window()
 
 #Folder Path
-lidar_folder = r"Test_Data_short"
+lidar_folder = r"Processed_Data_short"
 process_lidar_video(lidar_folder)

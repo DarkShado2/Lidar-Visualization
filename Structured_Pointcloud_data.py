@@ -10,8 +10,8 @@ def load_lidar_bin(file_path):
     points = scan.reshape((-1, 4))  # x, y, z, reflectance
     return points
 
-def remove_noise(points, nb_neighbors=30, std_ratio=1.0, radius=0.5, max_nn=20, distance_threshold=1.0, min_points=50):
-    #Removes noise and small clusters using statistical and radius outlier removal
+def remove_noise(points, nb_neighbors=30, std_ratio=1.0, radius=0.5, max_nn=20, distance_threshold=1.0, min_points=50, max_distance=30.0):
+    #Removes noise and small clusters using statistical, radius outlier removal, and distance filtering
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points[:, :3])
 
@@ -22,6 +22,12 @@ def remove_noise(points, nb_neighbors=30, std_ratio=1.0, radius=0.5, max_nn=20, 
     # Radius outlier removal
     cl, ind = pcd.remove_radius_outlier(nb_points=max_nn, radius=radius)
     pcd = pcd.select_by_index(ind)
+
+    # Distance filtering
+    filtered_points = np.asarray(pcd.points)
+    distances = np.linalg.norm(filtered_points, axis=1)
+    filtered_points = filtered_points[distances < max_distance]
+    pcd.points = o3d.utility.Vector3dVector(filtered_points)
 
     # Clustering to remove small clusters
     labels = np.array(pcd.cluster_dbscan(eps=distance_threshold, min_points=min_points, print_progress=False))
@@ -113,26 +119,28 @@ def create_grid_lines(z_level=-1, size=20, spacing=1, color=[0.7, 0.7, 0.7]):
     line_set.paint_uniform_color(color)
     return line_set
 
-def visualize_bounding_boxes(points, bounding_boxes, labels):
+def visualize_bounding_boxes(points, bounding_boxes, labels, visualize=1):
+    #Visualizes the point cloud with bounding boxes and fixed markers if visualize == 1
+    if visualize == 1:
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        colors = np.random.uniform(0, 1, size=(len(np.unique(labels)), 3))
+        point_colors = colors[labels]
+        pcd.colors = o3d.utility.Vector3dVector(point_colors)
+        geometries = [pcd]
 
-    #Visualizes the point cloud with bounding boxes and fixed markers
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    colors = np.random.uniform(0, 1, size=(len(np.unique(labels)), 3))
-    point_colors = colors[labels]
-    pcd.colors = o3d.utility.Vector3dVector(point_colors)
-    geometries = [pcd]
+        # Add fixed markers (grid lines and cylinder)
+        geometries = add_fixed_markers(geometries)
 
-    # Add fixed markers (grid lines and cylinder)
-    geometries = add_fixed_markers(geometries)
+        for i, box in enumerate(bounding_boxes):
+            box.color = colors[i % len(colors)]
+            lines = o3d.geometry.LineSet.create_from_axis_aligned_bounding_box(box)
+            lines.paint_uniform_color(box.color)
+            geometries.append(lines)
 
-    for i, box in enumerate(bounding_boxes):
-        box.color = colors[i % len(colors)]
-        lines = o3d.geometry.LineSet.create_from_axis_aligned_bounding_box(box)
-        lines.paint_uniform_color(box.color)
-        geometries.append(lines)
-
-    o3d.visualization.draw_geometries(geometries)
+        o3d.visualization.draw_geometries(geometries)
+    else:
+        pass
 
 def remove_ground_points(points, height_threshold=-1.4):
     #Removes ground points based on height threshold
@@ -142,7 +150,7 @@ def save_lidar_bin(points, file_path):
     #Saves lidar points to a .bin file
     points.astype(np.float32).tofile(file_path)
 
-def process_lidar_video(lidar_folder, output_folder):
+def process_lidar_video(lidar_folder, output_folder, visualize=1):
     #Processes a folder of lidar .bin files, visualizes them sequentially, and saves the processed points.
     file_list = sorted(glob.glob(os.path.join(lidar_folder, "*.bin")))
 
@@ -155,7 +163,7 @@ def process_lidar_video(lidar_folder, output_folder):
         no_ground_points = remove_ground_points(filtered_points)
         final_points, bounding_boxes, final_labels = cluster_and_bounding_boxes(no_ground_points)  # Get filtered points
         if final_points.size > 0:
-            visualize_bounding_boxes(final_points, bounding_boxes, final_labels)
+            visualize_bounding_boxes(final_points, bounding_boxes, final_labels, visualize)
 
             # Save the processed points to a new .bin file
             output_file_name = os.path.basename(file_path)
@@ -164,9 +172,10 @@ def process_lidar_video(lidar_folder, output_folder):
             print(f"Saved processed data to: {output_file_path}")
 
         time.sleep(0.1)  # Adjust delay for desired speed
-        o3d.visualization.destroy_window()
+        if visualize ==0:
+            o3d.visualization.destroy_window()
 
 # Folder Path
 lidar_folder = r"Test_Data_short"
 output_folder = r"Processed_Data_short"
-process_lidar_video(lidar_folder, output_folder)
+process_lidar_video(lidar_folder, output_folder, visualize=1)  # Set visualize to 0 to disable visualization
